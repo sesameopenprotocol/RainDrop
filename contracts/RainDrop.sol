@@ -151,10 +151,14 @@ contract RainDrop is Owned, Pausable {
     address public newSponsor;
     uint public sponsorStakes; //stakes belong to sponsor
 
+    address public withdrawApprover;
+    address public newWithdrawApprover;
+
     event Deposit(address indexed from, address indexed to, uint amount);
     event Withdraw(address indexed from, address indexed to, uint amount);
     event ConfirmWithdraw(address indexed destination, uint amount);
     event DropTokens(address indexed from, uint amount);
+    event TransferWithdrawApprover(address indexed from, address indexed to);
     event TransferCommunityOwner(address indexed from, address indexed to);
     event AddCommunityStakes(address indexed from, uint amount);
     event WithdrawCommunityStakes(
@@ -172,6 +176,11 @@ contract RainDrop is Owned, Pausable {
 
     constructor(address tokenContractAddress) public {
         raindropToken = ERC20Interface(tokenContractAddress);
+    }
+
+    modifier onlyWithdrawApprover(address approver) {
+        require(approver == withdrawApprover);
+        _;
     }
 
     modifier onlyCommunityLeader(address leader) {
@@ -275,7 +284,7 @@ contract RainDrop is Owned, Pausable {
     function confirmWithdraw(address[] memory list)
         public
         whenNotPaused
-        onlyCommunityLeader(msg.sender)
+        onlyWithdrawApprover(msg.sender)
     {
         for (uint i=0; i<list.length; i++) {
             //revert if there is an address that is not an destination.
@@ -295,6 +304,17 @@ contract RainDrop is Owned, Pausable {
             emit ConfirmWithdraw(destination, amount);
             require(raindropToken.transfer(destination, amount));
         }
+    }
+
+    function changeWithdrawApprover(address newApprover) public onlyOwner {
+        newWithdrawApprover = newApprover;
+    }
+
+    function confirmWithdrawApprover() public {
+        require(msg.sender == newWithdrawApprover);
+        emit TransferWithdrawApprover(withdrawApprover, newWithdrawApprover);
+        withdrawApprover = newWithdrawApprover;
+        newWithdrawApprover = address(0);
     }
 
     function changeCommunityLeader(address newLeader) public onlyOwner {
